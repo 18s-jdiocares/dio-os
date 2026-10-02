@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XC Performance Engine & Calendar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            zinc: {
+              950: '#09090b',
+              900: '#121215',
+              850: '#18181b',
+              800: '#27272a',
+              700: '#3f3f46',
+            },
+            electric: {
+              red: '#ef4444',
+              green: '#22c55e',
+              yellow: '#eab308',
+              purple: '#a855f7',
+              brown: '#b45309',
+              pink: '#ec4899',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 0px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    .grid-lines {
+      background-size: 100% 48px;
+      background-image: linear-gradient(to bottom, #27272a 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="bg-[#09090b] text-zinc-100 font-sans antialiased min-h-screen flex flex-col selection:bg-red-500 selection:text-white border-zinc-800">
+
+  <!-- Top Navigation Bar -->
+  <header class="h-14 border-b border-zinc-800 bg-[#121215] px-4 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 bg-red-600 flex items-center justify-center font-bold text-black text-sm tracking-tighter">XC</div>
+      <span class="font-bold tracking-wider text-sm uppercase text-zinc-200">PRO PERFORMANCE SYSTEM <span class="text-zinc-500 text-xs font-mono ml-2">v2026.10</span></span>
+    </div>
+    
+    <!-- Dynamic Date / View Selector -->
+    <div class="flex items-center gap-2">
+      <button id="today-btn" class="px-3 py-1 text-xs uppercase font-mono tracking-wider border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300">Today</button>
+      <div class="flex items-center border border-zinc-700 bg-zinc-900">
+        <button id="prev-week" class="p-1 hover:bg-zinc-800 text-zinc-400 hover:text-white"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+        <span id="current-range-display" class="px-3 text-xs font-mono text-zinc-300">Oct 18 - Oct 24, 2026</span>
+        <button id="next-week" class="p-1 hover:bg-zinc-800 text-zinc-400 hover:text-white"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+      </div>
+      <div class="flex border border-zinc-700 bg-zinc-900">
+        <button id="view-week" class="px-3 py-1 text-xs font-mono uppercase bg-zinc-800 text-red-500 font-bold border-r border-zinc-700">Week</button>
+        <button id="view-day" class="px-3 py-1 text-xs font-mono uppercase text-zinc-400 hover:text-white">Day</button>
+      </div>
+    </div>
+
+    <!-- Quick Tools / Actions -->
+    <div class="flex items-center gap-2">
+      <button id="add-event-btn" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-black font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-colors">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Event
+      </button>
+      <button id="add-task-btn" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider flex items-center gap-1 border border-zinc-700">
+        <i data-lucide="check-square" class="w-3.5 h-3.5"></i> Task
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+
+    <!-- LEFT SIDEBAR: Calendar Categories & Filters (Cols 2) -->
+    <aside class="lg:col-span-2 border-r border-zinc-800 bg-[#09090b] p-4 flex flex-col justify-between">
+      <div class="space-y-6">
+        <div>
+          <h3 class="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-3">Calendars</h3>
+          <div id="calendar-categories" class="space-y-1.5 text-xs font-mono">
+            <!-- Dynamically populated categories -->
+          </div>
+        </div>
+
+        <div class="border-t border-zinc-800 pt-4">
+          <h3 class="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-2">Upcoming Meets</h3>
+          <div id="upcoming-meets-list" class="space-y-2 text-xs max-h-48 overflow-y-auto pr-1">
+            <!-- Dynamically injected meets -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Summary -->
+      <div class="border-t border-zinc-800 pt-3">
+        <div class="text-[10px] font-mono text-zinc-500 uppercase">System Status</div>
+        <div class="flex justify-between items-center text-xs mt-1 font-mono">
+          <span class="text-zinc-400">ACWR Ratio:</span>
+          <span id="sidebar-acwr" class="text-green-500 font-bold">1.08 (Optimal)</span>
+        </div>
+        <div class="flex justify-between items-center text-xs mt-1 font-mono">
+          <span class="text-zinc-400">Sleep State:</span>
+          <span id="sidebar-sleep" class="text-zinc-300">5 Cycles / LSE</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER WORKSPACE: Primary Calendar Display (Cols 7) -->
+    <section class="lg:col-span-7 flex flex-col border-r border-zinc-800 bg-[#09090b] relative overflow-y-auto">
+      <!-- Calendar Container -->
+      <div id="calendar-container" class="flex-1 flex flex-col min-h-[700px]">
+        <!-- Dynamic Header (Days of week) -->
+        <div id="calendar-header-grid" class="grid grid-cols-8 border-b border-zinc-800 bg-[#121215] sticky top-0 z-20 font-mono text-xs text-zinc-400">
+          <div class="p-2 text-center border-r border-zinc-800">TIME</div>
+          <!-- Days populated dynamically -->
+        </div>
+
+        <!-- All Day Row -->
+        <div id="calendar-allday-grid" class="grid grid-cols-8 border-b border-zinc-800 bg-zinc-950/60 min-h-[36px] text-xs font-mono">
+          <div class="p-2 text-center border-r border-zinc-800 text-[10px] text-zinc-500">ALL DAY</div>
+          <!-- All day events populated -->
+        </div>
+
+        <!-- Timed Grid (24 Hours) -->
+        <div id="calendar-body-grid" class="flex-1 grid grid-cols-8 relative grid-lines min-h-[1152px]">
+          <!-- Time Labels Column -->
+          <div class="border-r border-zinc-800 bg-[#09090b]/80">
+            <!-- 24 hourly ticks -->
+            <template id="time-tick-template">
+              <div class="h-12 border-b border-transparent text-[10px] font-mono text-zinc-600 px-1 pt-0.5 text-right">
+                <span>12 AM</span>
+              </div>
+            </template>
+          </div>
+          <!-- Day Columns 1 to 7 -->
+          <div data-day="0" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="1" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="2" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="3" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="4" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="5" class="day-col border-r border-zinc-800 relative"></div>
+          <div data-day="6" class="day-col border-r border-zinc-800 relative"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDEBAR: Multi-Engine Dashboards (Cols 3) -->
+    <aside class="lg:col-span-3 bg-[#09090b] flex flex-col h-full overflow-y-auto divide-y divide-zinc-800">
+      
+      <!-- ENGINE 1: ACWR & MILEAGE PLANNER -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-mono font-bold uppercase tracking-widest text-red-500 flex items-center gap-1.5">
+            <i data-lucide="activity" class="w-4 h-4"></i> ACWR & Mileage Engine
+          </h2>
+          <span id="acwr-badge" class="px-2 py-0.5 text-[10px] font-mono border border-green-500/40 text-green-400 bg-green-950/20">SAFE 1.08</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+          <div class="border border-zinc-800 p-2 bg-[#121215]">
+            <div class="text-[10px] text-zinc-500">7-DAY ACUTE</div>
+            <div id="acute-val" class="text-base font-bold text-zinc-100">32.5 mi</div>
+          </div>
+          <div class="border border-zinc-800 p-2 bg-[#121215]">
+            <div class="text-[10px] text-zinc-500">28-DAY CHRONIC</div>
+            <div id="chronic-val" class="text-base font-bold text-zinc-100">30.1 mi</div>
+          </div>
+        </div>
+
+        <!-- Mileage Log Input Form -->
+        <form id="mileage-form" class="space-y-2 border border-zinc-800 p-2.5 bg-[#121215]">
+          <div class="text-[11px] font-mono text-zinc-300 font-bold uppercase">Log Today's Run</div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" step="0.1" id="miles-input" placeholder="Miles (e.g. 6.5)" required class="bg-zinc-950 border border-zinc-800 px-2 py-1 text-xs text-white focus:outline-none focus:border-red-500 font-mono" />
+            <select id="run-type-select" class="bg-zinc-950 border border-zinc-800 px-1 py-1 text-xs text-zinc-300 focus:outline-none font-mono">
+              <option value="Easy">Easy Run</option>
+              <option value="Workout">Workout</option>
+              <option value="Long Run">Long Run (Mon)</option>
+              <option value="Meet">Meet</option>
+              <option value="Rest">Rest</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 py-1 text-xs font-mono uppercase font-bold tracking-wider">
+            Record Mileage
+          </button>
+        </form>
+
+        <!-- Forward 7-Day Mileage Recommendations -->
+        <div>
+          <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider mb-1.5">7-Day Forecast (Target ACWR ~1.1)</div>
+          <div id="mileage-forecast-list" class="space-y-1 font-mono text-[11px]">
+            <!-- Injected forecast items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ENGINE 2: SLEEP OPTIMIZATION ENGINE -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-mono font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+            <i data-lucide="moon" class="w-4 h-4"></i> Sleep Optimizer Engine
+          </h2>
+          <span class="text-[10px] font-mono text-zinc-500">WAKE: 5:30 AM</span>
+        </div>
+
+        <div id="sleep-meet-status" class="p-2 border border-yellow-900/50 bg-yellow-950/20 text-xs font-mono text-yellow-300">
+          <!-- Dynamic sleep rule notification based on upcoming meet -->
+        </div>
+
+        <!-- Sleep Cycles Selector / Explainer -->
+        <div class="space-y-1.5 font-mono text-xs">
+          <div class="flex justify-between items-center text-zinc-400 text-[11px]">
+            <span>Cycle Variation</span>
+            <span id="recommended-bedtime" class="text-indigo-400 font-bold">Bedtime: 9:45 PM</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1 text-[10px] text-center">
+            <div class="border border-zinc-800 p-1 bg-zinc-950/60">
+              <div class="text-zinc-200 font-bold">FULL</div>
+              <div class="text-zinc-500">90 mins</div>
+            </div>
+            <div class="border border-zinc-800 p-1 bg-zinc-950/60">
+              <div class="text-zinc-200 font-bold">LSE</div>
+              <div class="text-zinc-500">75m (Post N3)</div>
+            </div>
+            <div class="border border-zinc-800 p-1 bg-zinc-950/60">
+              <div class="text-zinc-200 font-bold">ESE</div>
+              <div class="text-zinc-500">40m (Pre N3)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENGINE 3: TASK & POMODORO SCHEDULER -->
+      <div class="p-4 space-y-3 flex-1 flex flex-col justify-between">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-mono font-bold uppercase tracking-widest text-yellow-500 flex items-center gap-1.5">
+              <i data-lucide="clock" class="w-4 h-4"></i> Task & Pomodoro Engine
+            </h2>
+            <button id="auto-schedule-btn" class="text-[10px] font-mono border border-yellow-600/50 text-yellow-400 bg-yellow-950/30 px-1.5 py-0.5 hover:bg-yellow-900/40">
+              Auto-Fit Tasks
+            </button>
+          </div>
+
+          <!-- Pomodoro Active Timer Card -->
+          <div class="border border-zinc-800 bg-[#121215] p-3 text-center space-y-2">
+            <div id="pomo-task-name" class="text-xs font-mono text-zinc-300 truncate font-semibold">No Task Selected</div>
+            <div id="pomo-timer-display" class="text-3xl font-mono font-bold tracking-tight text-white">25:00</div>
+            <div class="flex justify-center gap-2 font-mono text-xs">
+              <button id="pomo-start-btn" class="px-3 py-1 bg-yellow-500 text-black font-bold uppercase hover:bg-yellow-400">Start</button>
+              <button id="pomo-reset-btn" class="px-3 py-1 border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white">Reset</button>
+            </div>
+          </div>
+
+          <!-- Pending Task List -->
+          <div>
+            <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider mb-1.5">Scheduled Task Queue</div>
+            <div id="task-queue-list" class="space-y-1.5 max-h-40 overflow-y-auto">
+              <!-- Task Items populated here -->
+            </div>
+          </div>
+        </div>
+
+        <div class="text-[10px] font-mono text-zinc-600 border-t border-zinc-800 pt-2">
+          * Tasks fit automatically around fixed calendar events.
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- MODAL: ADD / EDIT EVENT -->
+  <div id="event-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-[#121215] border border-zinc-800 w-full max-w-md p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
+        <h3 id="event-modal-title" class="text-sm font-mono font-bold uppercase text-zinc-100">Add Calendar Event</h3>
+        <button id="close-event-modal" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="event-form" class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">EVENT TITLE</label>
+          <input type="text" id="ev-title" required placeholder="e.g., Mock Trial / XC Practice" class="w-full bg-zinc-950 border border-zinc-800 px-3 py-1.5 text-white focus:outline-none focus:border-red-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-zinc-400 mb-1">CATEGORY</label>
+            <select id="ev-category" class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-zinc-200">
+              <option value="XC/TF">XC/TF (Green)</option>
+              <option value="Music">Music (Brown)</option>
+              <option value="Church">Church (Yellow)</option>
+              <option value="Robotics">Robotics (Pink)</option>
+              <option value="School">School (Purple)</option>
+              <option value="Mock trial">Mock Trial (Gray)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">DATE</label>
+            <input type="date" id="ev-date" required class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-white" />
+          </div>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="ev-allday" class="rounded-none bg-zinc-900 border-zinc-800" />
+          <label for="ev-allday" class="text-zinc-300">All-Day / Undetermined Time</label>
+        </div>
+        <div id="time-inputs" class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-zinc-400 mb-1">START TIME</label>
+            <input type="time" id="ev-start" value="15:00" class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-white" />
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">END TIME</label>
+            <input type="time" id="ev-end" value="17:00" class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-white" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-zinc-800 pt-3">
+          <button type="button" id="cancel-event-btn" class="px-3 py-1.5 border border-zinc-700 bg-zinc-900 text-zinc-300">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-red-600 text-black font-bold uppercase hover:bg-red-500">Save Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD TASK -->
+  <div id="task-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-[#121215] border border-zinc-800 w-full max-w-md p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
+        <h3 class="text-sm font-mono font-bold uppercase text-zinc-100">Add Task to Scheduler</h3>
+        <button id="close-task-modal" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="task-form" class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">TASK NAME</label>
+          <input type="text" id="tk-title" required placeholder="e.g., Physics Homework / Essay Outline" class="w-full bg-zinc-950 border border-zinc-800 px-3 py-1.5 text-white focus:outline-none focus:border-yellow-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-zinc-400 mb-1">DIFFICULTY / WEIGHT</label>
+            <select id="tk-weight" class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-zinc-200">
+              <option value="1">1 - Light (~25 mins)</option>
+              <option value="2">2 - Medium (~50 mins)</option>
+              <option value="3">3 - Heavy (~75 mins)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">TARGET DATE</label>
+            <input type="date" id="tk-date" required class="w-full bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-white" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-zinc-800 pt-3">
+          <button type="button" id="cancel-task-btn" class="px-3 py-1.5 border border-zinc-700 bg-zinc-900 text-zinc-300">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-yellow-500 text-black font-bold uppercase hover:bg-yellow-400">Add Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION SCRIPT & CORE ENGINE ENGINE LOGIC -->
+  <script>
+    // --- CATEGORIES & COLOR SYSTEM ---
+    const CATEGORIES = {
+      'XC/TF': { color: 'bg-green-600', border: 'border-green-500', text: 'text-green-400', hex: '#22c55e' },
+      'Music': { color: 'bg-amber-800', border: 'border-amber-600', text: 'text-amber-400', hex: '#b45309' },
+      'Church': { color: 'bg-yellow-600', border: 'border-yellow-500', text: 'text-yellow-400', hex: '#eab308' },
+      'Robotics': { color: 'bg-pink-600', border: 'border-pink-500', text: 'text-pink-400', hex: '#ec4899' },
+      'School': { color: 'bg-purple-600', border: 'border-purple-500', text: 'text-purple-400', hex: '#a855f7' },
+      'Mock trial': { color: 'bg-zinc-700', border: 'border-zinc-500', text: 'text-zinc-300', hex: '#71717a' },
+    };
+
+    // --- INITIAL SEED EVENTS MATCHING USER SCREENSHOTS & XC SCHEDULE ---
+    const SEED_MEETS = [
+      { name: "2026 Under the Lights Invite", date: "2026-08-28" },
+      { name: "Verona Invitational", date: "2026-09-05" },
+      { name: "44th West Ottawa Bredeweg Invitational", date: "2026-09-12" },
+      { name: "OK Red Jamboree #1", date: "2026-09-15" },
+      { name: "Ottawa Hills XC Invitational", date: "2026-09-18" },
+      { name: "Jackson Invitational", date: "2026-09-26" },
+      { name: "OK Red Jamboree 2", date: "2026-09-30" },
+      { name: "Allendale Falcon Invitational", date: "2026-10-03" },
+      { name: "Portage Invitational", date: "2026-10-10" },
+      { name: "Bob Brown JV Invitational", date: "2026-10-15" },
+      { name: "OK Red Championship", date: "2026-10-22" },
+      { name: "MHSAA LP Region 01-1 @ Allendale", date: "2026-10-31" },
+      { name: "MITCA Meet of Champions by HOKA", date: "2026-11-14" },
+      { name: "NXR Midwest Regional Championships", date: "2026-11-15" }
+    ];
+
+    const SEED_EVENTS = [
+      // Week Oct 18-24 2026 events from screenshots
+      { id: '1', title: 'Church', category: 'Church', date: '2026-10-18', start: '10:00', end: '11:30', allDay: false },
+      { id: '2', title: 'XC Practice', category: 'XC/TF', date: '2026-10-19', start: '15:00', end: '17:00', allDay: false },
+      { id: '3', title: 'MB rehearsal', category: 'Music', date: '2026-10-19', start: '18:00', end: '21:00', allDay: false },
+      { id: '4', title: 'XC Practice', category: 'XC/TF', date: '2026-10-20', start: '15:00', end: '17:00', allDay: false },
+      { id: '5', title: 'Organ lesson', category: 'Music', date: '2026-10-20', start: '17:30', end: '18:30', allDay: false },
+      { id: '6', title: 'Mock trial', category: 'Mock trial', date: '2026-10-20', start: '18:30', end: '20:30', allDay: false },
+      { id: '7', title: 'Pasta party II', category: 'XC/TF', date: '2026-10-21', start: '00:00', end: '00:00', allDay: true },
+      { id: '8', title: 'XC Practice', category: 'XC/TF', date: '2026-10-21', start: '15:00', end: '17:00', allDay: false },
+      { id: '9', title: 'Mock trial', category: 'Mock trial', date: '2026-10-21', start: '18:30', end: '20:30', allDay: false },
+      { id: '10', title: 'Violin lesson', category: 'Music', date: '2026-10-21', start: '20:30', end: '21:30', allDay: false },
+      { id: '11', title: 'OK Red Championship', category: 'XC/TF', date: '2026-10-22', start: '00:00', end: '00:00', allDay: true },
+      { id: '12', title: 'Offseason practice', category: 'Robotics', date: '2026-10-23', start: '18:00', end: '20:30', allDay: false },
+      { id: '13', title: 'Home game', category: 'Music', date: '2026-10-24', start: '17:00', end: '21:30', allDay: false },
+    ];
+
+    // Seed historical mileage entries (28 days prior to Oct 22, 2026)
+    const SEED_MILEAGE = {
+      '2026-10-15': { miles: 5.0, type: 'Easy' },
+      '2026-10-16': { miles: 4.5, type: 'Easy' },
+      '2026-10-17': { miles: 6.0, type: 'Workout' },
+      '2026-10-18': { miles: 0.0, type: 'Rest' },
+      '2026-10-19': { miles: 8.0, type: 'Long Run' },
+      '2026-10-20': { miles: 5.5, type: 'Easy' },
+      '2026-10-21': { miles: 4.0, type: 'Easy' },
+    };
+
+    const SEED_TASKS = [
+      { id: 't1', title: 'AP Bio Lab Report', weight: 3, date: '2026-10-20', duration: 75, completed: false, scheduledStart: null },
+      { id: 't2', title: 'Calculus Problem Set 4', weight: 2, date: '2026-10-21', duration: 50, completed: false, scheduledStart: null },
+      { id: 't3', title: 'English Essay Outline', weight: 1, date: '2026-10-21', duration: 25, completed: false, scheduledStart: null }
+    ];
+
+    // --- APPLICATION STATE ---
+    let state = {
+      currentDate: new Date(2026, 9, 21), // Oct 21, 2026
+      viewMode: 'week',
+      events: JSON.parse(localStorage.getItem('xc_events')) || SEED_EVENTS,
+      mileage: JSON.parse(localStorage.getItem('xc_mileage')) || SEED_MILEAGE,
+      tasks: JSON.parse(localStorage.getItem('xc_tasks')) || SEED_TASKS,
+      activeCategories: Object.keys(CATEGORIES),
+      activePomodoro: null,
+      pomoSecondsLeft: 1500,
+      pomoIsRunning: false,
+      pomoInterval: null
+    };
+
+    // --- SAVE STATE HELPER ---
+    function saveState() {
+      localStorage.setItem('xc_events', JSON.stringify(state.events));
+      localStorage.setItem('xc_mileage', JSON.stringify(state.mileage));
+      localStorage.setItem('xc_tasks', JSON.stringify(state.tasks));
+    }
+
+    // --- STREAMING_CHUNK:Initializing Core Engines & Render Functions... ---
+    // Initialize UI on load
+    window.onload = function() {
+      lucide.createIcons();
+      initCategoryFilters();
+      initUpcomingMeetsList();
+      renderTimeTicks();
+      renderCalendar();
+      updateACWR();
+      updateSleepEngine();
+      renderTaskQueue();
+      setupEventListeners();
+    };
+
+    // --- CALENDAR RENDERER ---
+    function getWeekDays(startDate) {
+      const start = new Date(startDate);
+      const day = start.getDay();
+      const diff = start.getDate() - day; // Sunday start
+      const sunday = new Date(start.setDate(diff));
+      
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(sunday);
+        d.setDate(sunday.getDate() + i);
+        days.push(d);
+      }
+      return days;
+    }
+
+    function formatDateISO(d) {
+      return d.toISOString().split('T')[0];
+    }
+
+    function renderTimeTicks() {
+      const container = document.querySelector('#calendar-body-grid > div:first-child');
+      container.innerHTML = '';
+      for (let h = 0; h < 24; h++) {
+        const hourFormatted = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+        const div = document.createElement('div');
+        div.className = 'h-12 border-b border-zinc-800 text-[10px] font-mono text-zinc-600 px-1 pt-0.5 text-right';
+        div.innerHTML = `<span>${hourFormatted}</span>`;
+        container.appendChild(div);
+      }
+    }
+
+    function renderCalendar() {
+      const weekDays = getWeekDays(state.currentDate);
+      
+      // Update Date Range Display Header
+      const startStr = weekDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endStr = weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      document.getElementById('current-range-display').textContent = `${startStr} - ${endStr}`;
+
+      // Render Header Days
+      const headerGrid = document.getElementById('calendar-header-grid');
+      headerGrid.innerHTML = '<div class="p-2 text-center border-r border-zinc-800 text-[10px] text-zinc-500">TIME</div>';
+      
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      weekDays.forEach((d, idx) => {
+        const isToday = formatDateISO(d) === formatDateISO(state.currentDate);
+        const dayDiv = document.createElement('div');
+        dayDiv.className = `p-2 text-center border-r border-zinc-800 font-bold ${isToday ? 'bg-red-950/30 text-red-400' : 'text-zinc-300'}`;
+        dayDiv.innerHTML = `
+          <div class="text-[10px] text-zinc-500 uppercase">${dayNames[idx]}</div>
+          <div class="text-sm font-mono">${d.getDate()}</div>
+        `;
+        headerGrid.appendChild(dayDiv);
+      });
+
+      // Clear Day Columns & All Day Row
+      const alldayGrid = document.getElementById('calendar-allday-grid');
+      alldayGrid.innerHTML = '<div class="p-2 text-center border-r border-zinc-800 text-[10px] text-zinc-500">ALL DAY</div>';
+      
+      for (let i = 0; i < 7; i++) {
+        const alldayCol = document.createElement('div');
+        alldayCol.className = 'p-1 border-r border-zinc-800 min-h-[36px] flex flex-col gap-1';
+        alldayCol.dataset.dayIndex = i;
+        alldayGrid.appendChild(alldayCol);
+
+        const dayCol = document.querySelector(`.day-col[data-day="${i}"]`);
+        dayCol.innerHTML = '';
+      }
+
+      // Populate Events into Days
+      weekDays.forEach((d, dayIndex) => {
+        const dateStr = formatDateISO(d);
+        const dayEvents = state.events.filter(ev => ev.date === dateStr && state.activeCategories.includes(ev.category));
+
+        dayEvents.forEach(ev => {
+          const cat = CATEGORIES[ev.category] || CATEGORIES['Mock trial'];
+          if (ev.allDay) {
+            // All day block
+            const alldayCol = alldayGrid.children[dayIndex + 1];
+            const badge = document.createElement('div');
+            badge.className = `text-[10px] font-mono px-1.5 py-0.5 truncate border ${cat.border} ${cat.color} text-white font-semibold cursor-pointer hover:opacity-80`;
+            badge.textContent = ev.title;
+            badge.onclick = () => deleteEvent(ev.id);
+            alldayCol.appendChild(badge);
+          } else {
+            // Timed Event Block
+            const dayCol = document.querySelector(`.day-col[data-day="${dayIndex}"]`);
+            const [startH, startM] = ev.start.split(':').map(Number);
+            const [endH, endM] = ev.end.split(':').map(Number);
+
+            const topPx = (startH * 48) + (startM / 60 * 48);
+            const durationMins = ((endH * 60) + endM) - ((startH * 60) + startM);
+            const heightPx = Math.max((durationMins / 60 * 48), 20);
+
+            const block = document.createElement('div');
+            block.className = `absolute left-0.5 right-0.5 p-1 border-l-2 text-xs font-mono rounded-none border ${cat.border} ${cat.text} bg-zinc-900/90 shadow-md cursor-pointer hover:border-white transition-all overflow-hidden z-10`;
+            block.style.top = `${topPx}px`;
+            block.style.height = `${heightPx}px`;
+            block.innerHTML = `
+              <div class="font-bold truncate text-[11px] leading-tight">${ev.title}</div>
+              <div class="text-[9px] text-zinc-400 opacity-80">${ev.start} - ${ev.end}</div>
+            `;
+            block.onclick = () => deleteEvent(ev.id);
+            dayCol.appendChild(block);
+          }
+        });
+      });
+    }
+
+    // --- ENGINE 1: ACWR & MILEAGE LOGIC ---
+    function updateACWR() {
+      // Calculate 7-day sum and 28-day sum relative to state.currentDate
+      const targetDate = new Date(state.currentDate);
+      
+      let acuteSum = 0;
+      let chronicSum = 0;
+
+      for (let i = 0; i < 28; i++) {
+        const d = new Date(targetDate);
+        d.setDate(targetDate.getDate() - i);
+        const dStr = formatDateISO(d);
+        const val = state.mileage[dStr] ? state.mileage[dStr].miles : 0;
+
+        if (i < 7) acuteSum += val;
+        chronicSum += val;
+      }
+
+      const acuteAvg = acuteSum / 7;
+      const chronicAvg = chronicSum / 28;
+      const acwr = chronicAvg > 0 ? (acuteAvg / chronicAvg) : 1.0;
+
+      document.getElementById('acute-val').textContent = `${acuteSum.toFixed(1)} mi`;
+      document.getElementById('chronic-val').textContent = `${(chronicAvg * 7).toFixed(1)} mi/wk`;
+      
+      const acwrBadge = document.getElementById('acwr-badge');
+      const sidebarAcwr = document.getElementById('sidebar-acwr');
+
+      let statusText = `SAFE ${acwr.toFixed(2)}`;
+      let statusClass = 'border-green-500/40 text-green-400 bg-green-950/20';
+
+      if (acwr > 1.5) {
+        statusText = `HIGH RISK ${acwr.toFixed(2)}`;
+        statusClass = 'border-red-500/40 text-red-400 bg-red-950/20';
+      } else if (acwr < 0.8) {
+        statusText = `UNDER-TRAIN ${acwr.toFixed(2)}`;
+        statusClass = 'border-yellow-500/40 text-yellow-400 bg-yellow-950/20';
+      }
+
+      acwrBadge.className = `px-2 py-0.5 text-[10px] font-mono border ${statusClass}`;
+      acwrBadge.textContent = statusText;
+      sidebarAcwr.textContent = `${acwr.toFixed(2)} (${acwr > 1.5 ? 'High Risk' : acwr < 0.8 ? 'Low' : 'Optimal'})`;
+
+      renderMileageForecast(chronicAvg);
+    }
+
+    function renderMileageForecast(chronicAvg) {
+      const container = document.getElementById('mileage-forecast-list');
+      container.innerHTML = '';
+
+      // Target safe daily mileage aiming for ACWR ~1.1
+      const safeWeeklyTarget = Math.max(chronicAvg * 7 * 1.05, 25);
+      
+      // Breakdown rules: Mon = Long Run (~28%), Sat/Sun = Easy/Rest, Tue/Thu = Workouts
+      const cur = new Date(state.currentDate);
+      
+      for (let i = 1; i <= 7; i++) {
+        const fDate = new Date(cur);
+        fDate.setDate(cur.getDate() + i);
+        const dayNum = fDate.getDay(); // 0 = Sun, 1 = Mon ...
+        const dateStr = formatDateISO(fDate);
+
+        let suggestedMiles = 0;
+        let runType = 'Easy Run';
+
+        if (dayNum === 1) { // Monday Long Run
+          suggestedMiles = safeWeeklyTarget * 0.28;
+          runType = 'Long Run';
+        } else if (dayNum === 0) { // Sunday Rest / Recovery
+          suggestedMiles = 0;
+          runType = 'Rest Day';
+        } else if (dayNum === 6) { // Saturday Easy or Meet
+          const isMeet = SEED_MEETS.some(m => m.date === dateStr);
+          suggestedMiles = isMeet ? 5.0 : safeWeeklyTarget * 0.12;
+          runType = isMeet ? 'XC Meet' : 'Easy Run';
+        } else { // Tue - Fri
+          suggestedMiles = safeWeeklyTarget * 0.15;
+          runType = (dayNum === 2 || dayNum === 4) ? 'Workout Day' : 'Easy Run';
+        }
+
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center p-1.5 border border-zinc-800/80 bg-zinc-950/40 text-zinc-300';
+        div.innerHTML = `
+          <div>
+            <span class="text-zinc-500">${fDate.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })}:</span>
+            <span class="font-bold text-zinc-200 ml-1">${runType}</span>
+          </div>
+          <div class="text-red-400 font-bold">${suggestedMiles > 0 ? suggestedMiles.toFixed(1) + ' mi' : 'OFF'}</div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    // --- ENGINE 2: SLEEP OPTIMIZER ENGINE ---
+    function updateSleepEngine() {
+      const curDateStr = formatDateISO(state.currentDate);
+      
+      // Calculate distances to meets
+      let meet2NightsBefore = false;
+      let meet1NightBefore = false;
+      let meetNightOf = false;
+      let meetNightAfter = false;
+
+      SEED_MEETS.forEach(meet => {
+        const meetD = new Date(meet.date);
+        const curD = new Date(curDateStr);
+        const diffDays = Math.round((meetD - curD) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 2) meet2NightsBefore = true;
+        if (diffDays === 1) meet1NightBefore = true;
+        if (diffDays === 0) meetNightOf = true;
+        if (diffDays === -1) meetNightAfter = true;
+      });
+
+      const statusBox = document.getElementById('sleep-meet-status');
+      const bedtimeDisplay = document.getElementById('recommended-bedtime');
+      const wakeTime = "05:30 AM"; // Default wake up fixed between 5-6am
+
+      // Override Priority Logic: 2-nights-before > night-after; 1-night-before overrides night-after
+      let ruleText = "Standard Sleep Protocol";
+      let recommendedCycles = 5;
+      let cycleType = "Full Cycle (90m)";
+      let bedtime = "10:00 PM";
+
+      if (meet2NightsBefore) {
+        ruleText = "⚡ 2 NIGHTS BEFORE MEET: Min 5 Cycles Late Short Exit (LSE). Core recovery night.";
+        recommendedCycles = 5;
+        cycleType = "Late Short Exit (75m)";
+        bedtime = "09:15 PM";
+      } else if (meet1NightBefore) {
+        ruleText = "🌙 1 NIGHT BEFORE MEET: Flexible Bedtime allowed. Sleep anxiety tolerance buffer.";
+        recommendedCycles = 4;
+        cycleType = "Late Short Exit (75m)";
+        bedtime = "Flexible (Target ~10:30 PM)";
+      } else if (meetNightOf) {
+        ruleText = "🏃 NIGHT OF MEET: 5 Cycles Late Short Exit (LSE) required for tissue repair.";
+        recommendedCycles = 5;
+        cycleType = "Late Short Exit (75m)";
+        bedtime = "09:30 PM";
+      } else if (meetNightAfter) {
+        ruleText = "🔄 NIGHT AFTER MEET: 4 Cycles Late Short Exit (LSE).";
+        recommendedCycles = 4;
+        cycleType = "Late Short Exit (75m)";
+        bedtime = "10:30 PM";
+      } else {
+        ruleText = "💤 Regular Training Night: Target 5 Full Cycles (7.5 Hrs).";
+        recommendedCycles = 5;
+        cycleType = "Full Cycle (90m)";
+        bedtime = "09:45 PM";
+      }
+
+      statusBox.textContent = ruleText;
+      bedtimeDisplay.textContent = `Bedtime: ${bedtime}`;
+      document.getElementById('sidebar-sleep').textContent = `${recommendedCycles} Cycles / ${cycleType.split(' ')[0]}`;
+    }
+
+    // --- ENGINE 3: TASK & POMODORO ENGINE ---
+    function renderTaskQueue() {
+      const container = document.getElementById('task-queue-list');
+      container.innerHTML = '';
+
+      state.tasks.forEach(task => {
+        const item = document.createElement('div');
+        item.className = `p-2 border ${state.activePomodoro === task.id ? 'border-yellow-500 bg-yellow-950/20' : 'border-zinc-800 bg-[#121215]'} flex justify-between items-center text-xs font-mono`;
+        
+        const priorityColors = { 1: 'text-zinc-400', 2: 'text-yellow-400', 3: 'text-red-400' };
+
+        item.innerHTML = `
+          <div class="truncate flex-1 pr-2">
+            <div class="font-bold text-zinc-200 truncate">${task.title}</div>
+            <div class="text-[10px] text-zinc-500">Weight: <span class="${priorityColors[task.weight]}">Lvl ${task.weight}</span> (${task.duration} mins)</div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="selectPomodoroTask('${task.id}')" class="px-2 py-0.5 border border-yellow-600/50 text-yellow-400 bg-yellow-950/30 hover:bg-yellow-900/50 text-[10px]">
+              Select
+            </button>
+            <button onclick="deleteTask('${task.id}')" class="text-zinc-600 hover:text-red-400 p-0.5">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function selectPomodoroTask(taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+      state.activePomodoro = task.id;
+      document.getElementById('pomo-task-name').textContent = task.title;
+      state.pomoSecondsLeft = task.duration * 60;
+      updatePomodoroDisplay();
+      renderTaskQueue();
+    }
+
+    function updatePomodoroDisplay() {
+      const m = Math.floor(state.pomoSecondsLeft / 60);
+      const s = state.pomoSecondsLeft % 60;
+      document.getElementById('pomo-timer-display').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function togglePomodoroTimer() {
+      const startBtn = document.getElementById('pomo-start-btn');
+      if (state.pomoIsRunning) {
+        clearInterval(state.pomoInterval);
+        state.pomoIsRunning = false;
+        startBtn.textContent = 'Start';
+        startBtn.className = 'px-3 py-1 bg-yellow-500 text-black font-bold uppercase hover:bg-yellow-400';
+      } else {
+        state.pomoIsRunning = true;
+        startBtn.textContent = 'Pause';
+        startBtn.className = 'px-3 py-1 bg-zinc-700 text-white font-bold uppercase hover:bg-zinc-600';
+        
+        state.pomoInterval = setInterval(() => {
+          if (state.pomoSecondsLeft > 0) {
+            state.pomoSecondsLeft--;
+            updatePomodoroDisplay();
+          } else {
+            clearInterval(state.pomoInterval);
+            state.pomoIsRunning = false;
+            startBtn.textContent = 'Start';
+            alert('Pomodoro Work Session Complete!');
+          }
+        }, 1000);
+      }
+    }
+
+    // Auto-fit tasks into open calendar windows
+    function autoScheduleTasks() {
+      const todayStr = formatDateISO(state.currentDate);
+      const existingEvents = state.events.filter(e => e.date === todayStr && !e.allDay);
+      
+      // Calculate occupied time slots
+      let occupied = existingEvents.map(e => {
+        const [sh, sm] = e.start.split(':').map(Number);
+        const [eh, em] = e.end.split(':').map(Number);
+        return { start: sh * 60 + sm, end: eh * 60 + em };
+      });
+
+      // Add sleep constraint block (e.g. 21:30 to 24:00)
+      occupied.push({ start: 21.5 * 60, end: 24 * 60 });
+
+      // Sort occupied windows
+      occupied.sort((a, b) => a.start - b.start);
+
+      // Find available windows starting from 3 PM (15:00)
+      let currentPointer = 15 * 60; // 3 PM after school
+      
+      state.tasks.forEach(task => {
+        let placed = false;
+        while (currentPointer + task.duration <= 21.5 * 60) {
+          const conflict = occupied.find(o => 
+            (currentPointer >= o.start && currentPointer < o.end) || 
+            (currentPointer + task.duration > o.start && currentPointer + task.duration <= o.end)
+          );
+
+          if (!conflict) {
+            // Found open window
+            const startH = String(Math.floor(currentPointer / 60)).padStart(2, '0');
+            const startM = String(currentPointer % 60).padStart(2, '0');
+            const endMins = currentPointer + task.duration;
+            const endH = String(Math.floor(endMins / 60)).padStart(2, '0');
+            const endM = String(endMins % 60).padStart(2, '0');
+
+            // Insert as scheduled event in calendar
+            state.events.push({
+              id: 'task-ev-' + Date.now() + Math.random(),
+              title: `[TASK] ${task.title}`,
+              category: 'School',
+              date: todayStr,
+              start: `${startH}:${startM}`,
+              end: `${endH}:${endM}`,
+              allDay: false
+            });
+
+            currentPointer += task.duration + 10; // 10 min rest break
+            placed = true;
+            break;
+          } else {
+            currentPointer = conflict.end + 5;
+          }
+        }
+      });
+
+      saveState();
+      renderCalendar();
+      alert('Tasks auto-fitted into free calendar slots!');
+    }
+
+    // --- SIDEBAR & FILTER HELPER FUNCTIONS ---
+    function initCategoryFilters() {
+      const container = document.getElementById('calendar-categories');
+      container.innerHTML = '';
+
+      Object.keys(CATEGORIES).forEach(cat => {
+        const info = CATEGORIES[cat];
+        const isChecked = state.activeCategories.includes(cat);
+        const div = document.createElement('label');
+        div.className = 'flex items-center gap-2 cursor-pointer hover:text-white text-zinc-400 select-none';
+        div.innerHTML = `
+          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCategory('${cat}')" class="rounded-none bg-zinc-900 border-zinc-800 text-red-600 focus:ring-0">
+          <span class="w-2.5 h-2.5 inline-block" style="background-color: ${info.hex}"></span>
+          <span>${cat}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function toggleCategory(cat) {
+      if (state.activeCategories.includes(cat)) {
+        state.activeCategories = state.activeCategories.filter(c => c !== cat);
+      } else {
+        state.activeCategories.push(cat);
+      }
+      renderCalendar();
+    }
+
+    function initUpcomingMeetsList() {
+      const container = document.getElementById('upcoming-meets-list');
+      container.innerHTML = '';
+
+      SEED_MEETS.forEach(meet => {
+        const div = document.createElement('div');
+        div.className = 'p-1.5 border border-zinc-800 bg-[#121215] text-[11px] font-mono text-zinc-300';
+        div.innerHTML = `
+          <div class="text-zinc-500 text-[9px]">${meet.date}</div>
+          <div class="font-bold text-green-400 truncate">${meet.name}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function deleteEvent(id) {
+      if (confirm('Delete this event?')) {
+        state.events = state.events.filter(e => e.id !== id);
+        saveState();
+        renderCalendar();
+        updateSleepEngine();
+      }
+    }
+
+    function deleteTask(id) {
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      saveState();
+      renderTaskQueue();
+    }
+
+    // --- EVENT LISTENERS SETUP ---
+    function setupEventListeners() {
+      // Date Navigation
+      document.getElementById('prev-week').onclick = () => {
+        state.currentDate.setDate(state.currentDate.getDate() - 7);
+        renderCalendar();
+        updateACWR();
+        updateSleepEngine();
+      };
+
+      document.getElementById('next-week').onclick = () => {
+        state.currentDate.setDate(state.currentDate.getDate() + 7);
+        renderCalendar();
+        updateACWR();
+        updateSleepEngine();
+      };
+
+      document.getElementById('today-btn').onclick = () => {
+        state.currentDate = new Date(2026, 9, 21);
+        renderCalendar();
+        updateACWR();
+        updateSleepEngine();
+      };
+
+      // Modals
+      const evModal = document.getElementById('event-modal');
+      const tkModal = document.getElementById('task-modal');
+
+      document.getElementById('add-event-btn').onclick = () => {
+        document.getElementById('ev-date').value = formatDateISO(state.currentDate);
+        evModal.classList.remove('hidden');
+      };
+
+      document.getElementById('close-event-modal').onclick = () => evModal.classList.add('hidden');
+      document.getElementById('cancel-event-btn').onclick = () => evModal.classList.add('hidden');
+
+      document.getElementById('add-task-btn').onclick = () => {
+        document.getElementById('tk-date').value = formatDateISO(state.currentDate);
+        tkModal.classList.remove('hidden');
+      };
+
+      document.getElementById('close-task-modal').onclick = () => tkModal.classList.add('hidden');
+      document.getElementById('cancel-task-btn').onclick = () => tkModal.classList.add('hidden');
+
+      // Forms
+      document.getElementById('event-form').onsubmit = (e) => {
+        e.preventDefault();
+        const newEv = {
+          id: 'ev-' + Date.now(),
+          title: document.getElementById('ev-title').value,
+          category: document.getElementById('ev-category').value,
+          date: document.getElementById('ev-date').value,
+          allDay: document.getElementById('ev-allday').checked,
+          start: document.getElementById('ev-start').value,
+          end: document.getElementById('ev-end').value,
+        };
+        state.events.push(newEv);
+        saveState();
+        renderCalendar();
+        evModal.classList.add('hidden');
+      };
+
+      document.getElementById('mileage-form').onsubmit = (e) => {
+        e.preventDefault();
+        const miles = parseFloat(document.getElementById('miles-input').value);
+        const type = document.getElementById('run-type-select').value;
+        const curStr = formatDateISO(state.currentDate);
+
+        state.mileage[curStr] = { miles, type };
+        saveState();
+        updateACWR();
+        document.getElementById('miles-input').value = '';
+      };
+
+      document.getElementById('task-form').onsubmit = (e) => {
+        e.preventDefault();
+        const weight = parseInt(document.getElementById('tk-weight').value);
+        const durationMap = { 1: 25, 2: 50, 3: 75 };
+
+        const newTask = {
+          id: 'tk-' + Date.now(),
+          title: document.getElementById('tk-title').value,
+          weight,
+          duration: durationMap[weight],
+          date: document.getElementById('tk-date').value,
+          completed: false
+        };
+
+        state.tasks.push(newTask);
+        saveState();
+        renderTaskQueue();
+        tkModal.classList.add('hidden');
+      };
+
+      // Pomodoro Buttons
+      document.getElementById('pomo-start-btn').onclick = togglePomodoroTimer;
+      document.getElementById('pomo-reset-btn').onclick = () => {
+        clearInterval(state.pomoInterval);
+        state.pomoIsRunning = false;
+        state.pomoSecondsLeft = 1500;
+        updatePomodoroDisplay();
+        document.getElementById('pomo-start-btn').textContent = 'Start';
+      };
+
+      document.getElementById('auto-schedule-btn').onclick = autoScheduleTasks;
+    }
+  </script>
+</body>
+</html>
